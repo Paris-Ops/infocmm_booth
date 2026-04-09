@@ -2803,7 +2803,20 @@ function saveAllImages() {
   var compareCount = document.getElementById('compare-count');
   var compareNames = document.getElementById('compare-names');
   var COMPARE_TAB_NAME = 'infocomm_compare_tab';
+  var CHECKBOX_KEY = 'infocomm_booth_checkboxes';
   var compareTabRef = null;
+
+  function saveCheckboxState() {
+    var checked = [];
+    document.querySelectorAll('.compare-cb').forEach(function(cb) {
+      if (cb.checked) checked.push(cb.getAttribute('data-compare-id'));
+    });
+    try { localStorage.setItem(CHECKBOX_KEY, JSON.stringify(checked)); } catch(e) {}
+  }
+
+  function loadCheckboxState() {
+    try { return JSON.parse(localStorage.getItem(CHECKBOX_KEY) || '[]'); } catch(e) { return []; }
+  }
 
   // InfoComm 2026 booth requirements for the Features row
   var infocommReqs = [
@@ -2897,12 +2910,25 @@ function saveAllImages() {
         selected = selected.filter(function(s) { return s.id !== cardId; });
       }
       updateBar();
+      saveCheckboxState();
       // Auto-update comparison tab if it's open
       if (compareTabRef && !compareTabRef.closed && selected.length >= 2) {
         renderCompareTab();
       }
     });
   });
+
+  // Restore saved checkbox state on page load
+  var savedChecked = loadCheckboxState();
+  if (savedChecked.length > 0) {
+    document.querySelectorAll('.compare-cb').forEach(function(cb) {
+      var cid = cb.getAttribute('data-compare-id');
+      if (savedChecked.indexOf(cid) !== -1) {
+        cb.checked = true;
+        cb.dispatchEvent(new Event('change'));
+      }
+    });
+  }
 
   function getCardImage(imgCell) {
     if (!imgCell) return '';
@@ -2934,6 +2960,7 @@ function saveAllImages() {
     var selAllCb = document.getElementById('select-all-cb');
     if (selAllCb) selAllCb.checked = false;
     updateBar();
+    saveCheckboxState();
   };
 
   window.toggleSelectAll = function(masterCb) {
@@ -2944,6 +2971,7 @@ function saveAllImages() {
         cb.dispatchEvent(new Event('change'));
       }
     });
+    saveCheckboxState();
   };
 
   function renderCompareTab() {
