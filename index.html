@@ -293,20 +293,21 @@
     position: sticky; top: 0; z-index: 9000;
     background: var(--accent); color: white; padding: 10px 20px;
     display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px;
     border-radius: var(--radius-md); margin-bottom: 12px;
     box-shadow: var(--shadow-md);
   }
   .compare-bar.has-selected { background: var(--accent); }
   .compare-bar:not(.has-selected) { background: #374151; }
-  .compare-bar .compare-count { font-weight: 700; font-size: 14px; }
-  .compare-bar .compare-names { font-size: 12px; opacity: 0.85; margin-left: 12px; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .compare-bar .compare-count { font-weight: 700; font-size: 14px; white-space: nowrap; }
+  .compare-bar .compare-names { font-size: 12px; opacity: 0.85; margin-left: 12px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
   .compare-bar button {
     padding: 8px 20px; border-radius: 8px; border: 2px solid white;
     background: white; color: var(--accent); font-weight: 700; font-size: 13px;
-    cursor: pointer; transition: all 0.15s;
+    cursor: pointer; transition: all 0.15s; white-space: nowrap; flex-shrink: 0;
   }
   .compare-bar button:hover { background: transparent; color: white; }
-  .compare-bar .btn-clear { background: transparent; color: white; border: 1px solid rgba(255,255,255,0.5); margin-right: 8px; font-size: 12px; padding: 6px 12px; }
+  .compare-bar .btn-clear { background: transparent; color: white; border: 1px solid rgba(255,255,255,0.5); margin-right: 0; font-size: 12px; padding: 6px 12px; flex-shrink: 0; }
   .compare-bar .btn-clear:hover { border-color: white; }
   .price-note { font-size: 11px; color: var(--text-secondary); font-weight: 500; }
 
@@ -1010,12 +1011,12 @@ function zoomReset(btn) {
 
 <!-- Compare bar -->
 <div class="compare-bar" id="compare-bar">
-  <div style="display:flex;align-items:center;">
-    <label style="display:flex;align-items:center;cursor:pointer;margin-right:16px;font-size:13px;opacity:0.9;"><input type="checkbox" id="select-all-cb" onclick="toggleSelectAll(this)" style="width:16px;height:16px;margin-right:6px;accent-color:#fff;cursor:pointer;"> Select All</label>
+  <div style="display:flex;align-items:center;min-width:0;flex:1;">
+    <label style="display:flex;align-items:center;cursor:pointer;margin-right:16px;font-size:13px;opacity:0.9;white-space:nowrap;flex-shrink:0;"><input type="checkbox" id="select-all-cb" onclick="toggleSelectAll(this)" style="width:16px;height:16px;margin-right:6px;accent-color:#fff;cursor:pointer;"> Select All</label>
     <span class="compare-count" id="compare-count">0 selected</span>
     <span class="compare-names" id="compare-names"></span>
   </div>
-  <div style="display:flex;align-items:center;gap:8px;">
+  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
     <button class="btn-clear" onclick="clearCompare()">Clear</button>
     <button onclick="openCompare()">Compare Side-by-Side →</button>
   </div>
