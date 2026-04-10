@@ -1838,6 +1838,224 @@ function showSaveStatus(text, cls) {
 
 showSaveStatus('Ready', '');
 
+/* ===== ADD NEW ROWS ===== */
+var ROWS_KEY = 'infocomm_booth_added_rows';
+var pendingImages = { purchase: null, rental: null, accessories: null };
+
+// Map section types to their table
+function getTable(type) {
+  if (type === 'accessories') {
+    var tables = document.querySelectorAll('.product-table');
+    return tables[tables.length - 1]; // last product-table is accessories
+  }
+  var sections = document.querySelectorAll('.section-title');
+  for (var i = 0; i < sections.length; i++) {
+    if (type === 'purchase' && sections[i].textContent.indexOf('Purchase') !== -1) {
+      return sections[i].nextElementSibling;
+    }
+    if (type === 'rental' && sections[i].textContent.indexOf('Rental') !== -1) {
+      var el = sections[i].nextElementSibling;
+      while (el && el.tagName !== 'TABLE') el = el.nextElementSibling;
+      return el;
+    }
+  }
+  return null;
+}
+
+function showAddForm(type) {
+  document.getElementById('add-' + type + '-trigger').style.display = 'none';
+  document.getElementById('add-' + type + '-form').style.display = 'block';
+  pendingImages[type] = null;
+}
+
+function hideAddForm(type) {
+  document.getElementById('add-' + type + '-form').style.display = 'none';
+  document.getElementById('add-' + type + '-trigger').style.display = 'block';
+  ['name','vendor','price','url','features'].forEach(function(f) {
+    var el = document.getElementById('add-' + type + '-' + f);
+    if (el) el.value = '';
+  });
+  var imgDrop = document.getElementById(type + '-img-drop');
+  if (imgDrop) {
+    imgDrop.classList.remove('has-image');
+    var img = imgDrop.querySelector('img');
+    if (img) img.remove();
+    var icon = imgDrop.querySelector('.drop-icon');
+    var text = imgDrop.querySelector('.drop-text');
+    if (icon) icon.style.display = '';
+    if (text) text.style.display = '';
+  }
+  pendingImages[type] = null;
+}
+
+function handleImgDrop(e, type) {
+  e.preventDefault();
+  e.stopPropagation();
+  var drop = document.getElementById(type + '-img-drop');
+  drop.classList.remove('drag-over');
+  var files = e.dataTransfer.files;
+  if (files && files.length > 0 && files[0].type.startsWith('image/')) {
+    processAddImage(drop, files[0], type);
+  }
+}
+
+function handleImgSelect(e, type) {
+  var drop = document.getElementById(type + '-img-drop');
+  if (e.target.files.length > 0) processAddImage(drop, e.target.files[0], type);
+}
+
+function processAddImage(drop, file, type) {
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    var tempImg = new Image();
+    tempImg.onload = function() {
+      var canvas = document.createElement('canvas');
+      var maxW = 800, maxH = 600;
+      var w = tempImg.width, h = tempImg.height;
+      if (w > maxW) { h = h * maxW / w; w = maxW; }
+      if (h > maxH) { w = w * maxH / h; h = maxH; }
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(tempImg, 0, 0, w, h);
+      pendingImages[type] = canvas.toDataURL('image/jpeg', 0.7);
+      drop.classList.add('has-image');
+      var icon = drop.querySelector('.drop-icon');
+      var text = drop.querySelector('.drop-text');
+      if (icon) icon.style.display = 'none';
+      if (text) text.style.display = 'none';
+      var existing = drop.querySelector('img');
+      if (existing) existing.remove();
+      var preview = document.createElement('img');
+      preview.src = pendingImages[type];
+      drop.appendChild(preview);
+    };
+    tempImg.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function submitNewOption(type) {
+  var name = (document.getElementById('add-' + type + '-name').value || '').trim();
+  var vendor = (document.getElementById('add-' + type + '-vendor').value || '').trim();
+  var price = (document.getElementById('add-' + type + '-price').value || '').trim();
+  var url = (document.getElementById('add-' + type + '-url').value || '').trim();
+  var features = (document.getElementById('add-' + type + '-features').value || '').trim();
+
+  if (!name) { alert('Please enter a product name.'); return; }
+
+  var imgHtml = '';
+  if (pendingImages[type]) {
+    imgHtml = '<img src="' + pendingImages[type] + '" onclick="toggleZoom(this)" title="Click to zoom" style="max-width:100%;border-radius:10px;border:1px solid #e2e8f0;cursor:zoom-in;">';
+    imgHtml += '<div class="zoom-hint">🔍 Click image to zoom</div>';
+  } else {
+    imgHtml = '<div class="drop-placeholder"><div class="drop-icon">📷</div><div>Drag & drop image here</div>' +
+      '<div style="font-size:11px;margin-top:4px;opacity:0.6">or click to browse</div>' +
+      '<input type="file" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer"></div>';
+  }
+
+  var featuresHtml = '';
+  if (features) {
+    featuresHtml = '<ul class="features">';
+    features.split('\n').forEach(function(f) {
+      f = f.trim();
+      if (f) featuresHtml += '<li class="pro">' + f.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>';
+    });
+    featuresHtml += '</ul>';
+  }
+
+  var vendorHtml = vendor;
+  if (url) {
+    vendorHtml = '<a href="' + url.replace(/"/g,'&quot;') + '" target="_blank">' + vendor + ' ↗</a>';
+  }
+
+  var tagLabel = type === 'accessories' ? 'ACCESSORY' : (type === 'rental' ? 'RENTAL' : 'NEW OPTION');
+  var headerRow = document.createElement('tr');
+  headerRow.className = 'option-row';
+  headerRow.innerHTML = '<td colspan="2"><span class="tag tag-new">🆕 ' + tagLabel + '</span></td>';
+
+  var contentRow = document.createElement('tr');
+  contentRow.className = 'option-row';
+  contentRow.innerHTML = '<td class="img-cell">' + imgHtml + '</td>' +
+    '<td class="detail-cell">' +
+    '<div class="product-name">' + name.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>' +
+    '<div class="vendor">' + vendorHtml + '</div>' +
+    (price ? '<div class="price">' + price.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>' : '') +
+    featuresHtml +
+    (url ? '<div style="margin-top:10px;"><a class="btn btn-primary" href="' + url.replace(/"/g,'&quot;') + '" target="_blank">View Product →</a></div>' : '') +
+    '</td>';
+
+  var table = getTable(type);
+  if (table) {
+    table.appendChild(headerRow);
+    table.appendChild(contentRow);
+  }
+
+  // Save to localStorage
+  saveAddedRow(type, { name: name, vendor: vendor, price: price, url: url, features: features, img: pendingImages[type] || '' });
+
+  hideAddForm(type);
+  autoSave();
+}
+
+function saveAddedRow(type, data) {
+  try {
+    var all = JSON.parse(localStorage.getItem(ROWS_KEY) || '{}');
+    if (!all[type]) all[type] = [];
+    all[type].push(data);
+    localStorage.setItem(ROWS_KEY, JSON.stringify(all));
+  } catch(e) {}
+}
+
+// Restore added rows on page load
+function restoreAddedRows() {
+  try {
+    var all = JSON.parse(localStorage.getItem(ROWS_KEY) || '{}');
+    ['purchase','rental','accessories'].forEach(function(type) {
+      if (!all[type] || !all[type].length) return;
+      var table = getTable(type);
+      if (!table) return;
+      all[type].forEach(function(data) {
+        var imgHtml = '';
+        if (data.img) {
+          imgHtml = '<img src="' + data.img + '" onclick="toggleZoom(this)" title="Click to zoom" style="max-width:100%;border-radius:10px;border:1px solid #e2e8f0;cursor:zoom-in;">';
+          imgHtml += '<div class="zoom-hint">🔍 Click image to zoom</div>';
+        } else {
+          imgHtml = '<div class="drop-placeholder"><div class="drop-icon">📷</div><div>Drag & drop image here</div>' +
+            '<div style="font-size:11px;margin-top:4px;opacity:0.6">or click to browse</div>' +
+            '<input type="file" accept="image/*" style="position:absolute;inset:0;opacity:0;cursor:pointer"></div>';
+        }
+        var featuresHtml = '';
+        if (data.features) {
+          featuresHtml = '<ul class="features">';
+          data.features.split('\n').forEach(function(f) {
+            f = f.trim();
+            if (f) featuresHtml += '<li class="pro">' + f.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</li>';
+          });
+          featuresHtml += '</ul>';
+        }
+        var vendorHtml = data.vendor || '';
+        if (data.url) vendorHtml = '<a href="' + data.url.replace(/"/g,'&quot;') + '" target="_blank">' + data.vendor + ' ↗</a>';
+        var tagLabel = type === 'accessories' ? 'ACCESSORY' : (type === 'rental' ? 'RENTAL' : 'NEW OPTION');
+        var headerRow = document.createElement('tr');
+        headerRow.className = 'option-row';
+        headerRow.innerHTML = '<td colspan="2"><span class="tag tag-new">🆕 ' + tagLabel + '</span></td>';
+        var contentRow = document.createElement('tr');
+        contentRow.className = 'option-row';
+        contentRow.innerHTML = '<td class="img-cell">' + imgHtml + '</td>' +
+          '<td class="detail-cell">' +
+          '<div class="product-name">' + (data.name || '').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>' +
+          '<div class="vendor">' + vendorHtml + '</div>' +
+          (data.price ? '<div class="price">' + data.price.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>' : '') +
+          featuresHtml +
+          (data.url ? '<div style="margin-top:10px;"><a class="btn btn-primary" href="' + data.url.replace(/"/g,'&quot;') + '" target="_blank">View Product →</a></div>' : '') +
+          '</td>';
+        table.appendChild(headerRow);
+        table.appendChild(contentRow);
+      });
+    });
+  } catch(e) {}
+}
+restoreAddedRows();
+
 </script>
 
 <!-- ═══ TRADE SHOW ACCESSORIES ═══ -->
@@ -1975,6 +2193,36 @@ showSaveStatus('Ready', '');
   </td>
 </tr>
 </table>
+
+<div class="add-option-row" id="add-accessories-trigger" onclick="showAddForm('accessories')">
+  <div class="add-trigger">
+    <div class="plus-circle">＋</div>
+    <span>Add a new accessory — drop an image or type details</span>
+  </div>
+</div>
+<div id="add-accessories-form" style="display:none;" class="add-option-row" onclick="event.stopPropagation()">
+  <div class="add-option-inner">
+    <div class="add-img-drop" id="accessories-img-drop"
+         ondragover="event.preventDefault(); this.classList.add('drag-over')"
+         ondragleave="this.classList.remove('drag-over')"
+         ondrop="handleImgDrop(event, 'accessories')">
+      <div class="drop-icon">📷</div>
+      <div class="drop-text">Drop image here<br>or click to browse</div>
+      <input type="file" accept="image/*" onchange="handleImgSelect(event, 'accessories')">
+    </div>
+    <div class="add-fields">
+      <div><label>Product Name</label><input type="text" id="add-accessories-name" placeholder="e.g. Monitor Stand"></div>
+      <div><label>Vendor</label><input type="text" id="add-accessories-vendor" placeholder="e.g. DisplayIt"></div>
+      <div><label>Price</label><input type="text" id="add-accessories-price" placeholder="e.g. $235"></div>
+      <div><label>Product URL</label><input type="text" id="add-accessories-url" placeholder="https://..."></div>
+      <div class="field-full"><label>Key Features (one per line)</label><textarea id="add-accessories-features" placeholder="Universal VESA mount&#10;Tool-free assembly&#10;Ships in 1 business day"></textarea></div>
+      <div class="field-full">
+        <button class="btn-add-submit" onclick="submitNewOption('accessories')">＋ Add Accessory</button>
+        <button class="btn-cancel-add" onclick="hideAddForm('accessories')">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- ═══ OTHER ═══ -->
 <h2 class="section-title">Other Vendors Researched (Not Shortlisted)</h2>
