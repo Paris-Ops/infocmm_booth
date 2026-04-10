@@ -990,6 +990,7 @@ function zoomReset(btn) {
   <div class="toolbar-group">
     <span class="save-status" id="save-status">Loading...</span>
     <button class="toolbar-btn primary" onclick="saveNow()"><span class="icon">💾</span> Save Now</button>
+    <button class="toolbar-btn" onclick="restoreDeletedRows()" title="Restore all deleted rows"><span class="icon">♻️</span> Restore Deleted</button>
   </div>
 </div>
 
@@ -3311,6 +3312,84 @@ function saveAllImages() {
   }
 
   console.log('[Compare] Initialized ' + headerRows.length + ' product cards with compare checkboxes');
+})();
+</script>
+
+<!-- ═══ DELETE PRODUCT ROWS ═══ -->
+<script>
+(function() {
+  var DEL_KEY = 'infocomm_booth_deleted_rows';
+
+  function getDeleted() {
+    try { return JSON.parse(localStorage.getItem(DEL_KEY) || '[]'); } catch(e) { return []; }
+  }
+
+  function saveDeleted(arr) {
+    try { localStorage.setItem(DEL_KEY, JSON.stringify(arr)); } catch(e) {}
+  }
+
+  function getRowId(headerRow) {
+    var tag = headerRow.querySelector('.tag');
+    var name = tag ? tag.textContent.trim() : '';
+    var contentRow = headerRow.nextElementSibling;
+    if (contentRow) {
+      var pn = contentRow.querySelector('.product-name');
+      if (pn) name += '|' + pn.textContent.trim();
+    }
+    return name;
+  }
+
+  function deleteRow(headerRow) {
+    var contentRow = headerRow.nextElementSibling;
+    var rowId = getRowId(headerRow);
+    if (!confirm('Delete this row?')) return;
+    headerRow.remove();
+    if (contentRow && contentRow.classList.contains('option-row')) contentRow.remove();
+    var deleted = getDeleted();
+    if (deleted.indexOf(rowId) === -1) deleted.push(rowId);
+    saveDeleted(deleted);
+    if (typeof saveNow === 'function') saveNow();
+  }
+
+  // Find all product card header rows and add delete buttons
+  var allRows = document.querySelectorAll('tr.option-row');
+  var deleted = getDeleted();
+
+  allRows.forEach(function(row) {
+    var td = row.querySelector('td[colspan="2"]');
+    if (!td || !td.querySelector('.tag')) return;
+
+    var rowId = getRowId(row);
+
+    // Hide previously deleted rows
+    if (deleted.indexOf(rowId) !== -1) {
+      var contentRow = row.nextElementSibling;
+      row.remove();
+      if (contentRow && contentRow.classList.contains('option-row')) contentRow.remove();
+      return;
+    }
+
+    // Add delete button
+    var btn = document.createElement('button');
+    btn.className = 'btn-del';
+    btn.title = 'Delete this row';
+    btn.textContent = '\u2715';
+    btn.style.cssText = 'float:right;margin-top:2px;width:24px;height:24px;font-size:12px;';
+    btn.onclick = function(e) {
+      e.stopPropagation();
+      deleteRow(row);
+    };
+    td.appendChild(btn);
+  });
+
+  // Expose undo function to restore all deleted rows
+  window.restoreDeletedRows = function() {
+    if (!confirm('Restore all deleted rows? Page will reload.')) return;
+    localStorage.removeItem(DEL_KEY);
+    location.reload();
+  };
+
+  console.log('[RowDelete] Initialized, ' + deleted.length + ' rows hidden');
 })();
 </script>
 </body></html>
